@@ -440,7 +440,7 @@ spec:css-syntax-3;
       Promise&lt;Credential&gt; store(Credential credential);
       Promise&lt;Credential?&gt; create(optional CredentialCreationOptions options = {});
       Promise&lt;undefined&gt; preventSilentAccess();
-      readonly attribute boolean conditionalMediationSupported;
+      attribute ConditionalMediationAvailability? isConditionalMediationAvailableFor;
     };
 
     dictionary CredentialData {
@@ -490,10 +490,11 @@ spec:css-syntax-3;
         Note: This function was previously called `requireUserMediation()` which should be considered
         deprecated.
 
-    :   <dfn attribute>conditionalMediationSupported</dfn>
-    ::  {{conditionalMediationSupported}} indicates whether the user agent supports the [=conditional=]
-        approach to [[#mediation-requirements|mediation of credential requests]]. If supported,
-        {{conditionalMediationSupported}} MUST return `true`, otherwise it MUST return `false`.
+    :   <dfn attribute>isConditionalMediationAvailableFor</dfn>
+    ::  {{isConditionalMediationAvailableFor}} is a {{ConditionalMediationAvailability}} dictionary
+        indicating whether the user agent supports the {{CredentialMediationRequirement/conditional}} approach to
+        [[#mediation-requirements|mediation of credential requests]] for a specific credential type.
+        If not present, {{CredentialMediationRequirement/conditional}} mediation is not supported for any credential type.
   </div>
 
   <div algorithm="create credentialscontainer">
@@ -627,11 +628,16 @@ spec:css-syntax-3;
     :   <dfn>conditional</dfn>
     ::  Discovered credentials are presented to the user in a non-modal dialog along with an
         indication of the origin which is requesting credentials. If the user makes a gesture
-        outside of the dialog, it closes and the `get()` method returns to the caller empty-handed
+        outside of the dialog, it closes without having the `get()` method return to the caller and
         without causing a user-visible error condition. If the user makes a gesture that selects
         a credential, that credential is returned to the caller. [=Requires user mediation=] is
-        treated as being `true` regardless of its actual value: the [=conditional=] behavior
+        treated as being `true` regardless of its actual value: the {{CredentialMediationRequirement/conditional}} behavior
         always involves user mediation of some sort if applicable credentials are discovered.
+
+        If no credentials are discovered, the user agent MAY prompt the user to take action in a way
+        that depends on the type of credential (e.g. to insert a device containing credentials).
+        Either way, the `get()` method MUST NOT return immediately with `null` to avoid revealing
+        the lack of applicable credentials to the website.
 
     :   <dfn>required</dfn>
     ::  The user agent will not hand over credentials without [=user mediation=], even if the
@@ -642,6 +648,31 @@ spec:css-syntax-3;
         to a specific operation, and does not affect the [=prevent silent access flag=] for the
         origin. To set that flag, developers should call {{preventSilentAccess()}}.
   </div>
+
+  #### Conditional mediation availability #### {#conditional-mediation-availability}
+
+  Websites can discover the availability of {{CredentialMediationRequirement/conditional}} mediation by querying
+  {{CredentialsContainer/isConditionalMediationAvailableFor}}.
+
+  <pre class="idl">
+    dictionary ConditionalMediationAvailability {
+      boolean password = false;
+      boolean federated = false;
+    };
+  </pre>
+
+  <div dfn-for="ConditionalMediationAvailability">
+    :   <dfn attribute>password</dfn>
+    ::  True if {{CredentialMediationRequirement/conditional}} mediation is available for [[#passwordcredential-interface|password
+        credentials]], false otherwise.
+
+    :   <dfn attribute>federated</dfn>
+    ::  True if {{CredentialMediationRequirement/conditional}} mediation is available for
+        [[#federatedcredential-interface|federated credentials]], false otherwise.
+  </div>
+
+  [[#implementation-extension|Extensions]] can extend {{ConditionalMediationAvailability}} as
+  required.
 
   #### Examples #### {#mediation-examples}
 
@@ -2147,6 +2178,16 @@ spec:css-syntax-3;
           partial dictionary CredentialCreationOptions {
             ExampleCredentialInit example;
           };
+        </pre>
+      </div>
+
+  6.  Extend {{ConditionalMediationAvailability}} with the new credential type:
+
+      <div class="example">
+        <pre>
+          partial dictionary ConditionalMediationAvailability {
+            boolean example = false;
+          }
         </pre>
       </div>
 
